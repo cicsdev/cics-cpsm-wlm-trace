@@ -11,12 +11,12 @@ The SETTRACE program is shipped in source form, and must be extracted from this 
 To run the program in a MAS, you need to define the SETTRACE program, and a CICS transaction code to execute it, for example: "SETT". You may use the CICS CEDA transaction, or CPSM BAS for this purpose. "Other proprietary CICS Resource Definition tools are available" - and may also be used. The salient points of each definition are:
 
 + Program: SETTRACE
->+ Language: Assembler
+  + Language: Assembler
 
 + Transaction: SETT (or whatever non-clashing transaction name that you choose)
->+ First program name: SETTRACE
->+ System purgeable: NO
->+ Terminal purgeable: NO
+  + First program name: SETTRACE
+  + System purgeable: NO
+  + Terminal purgeable: NO
 
 The transaction should not be purgeable, because otherwise the trace flags could be left on, causing trace flooding in the issuing region AND its connected CMAS. All other Program and Transaction definitions can be left to default, or to conform to your local CICSplex standards.
 
