@@ -92,14 +92,17 @@
 * 59 seconds. Any other value will be rejected.                       *
 *                                                                     *
 *---------------------------------------------------------------------*
-* Version : 1.0 - 23/08/3016                                          *
+* Version : 1.0 - 23/08/2016                                          *
 * Basic program structure delivered and functional                    *
 *---------------------------------------------------------------------*
-* Version : 1.1 - 26/08/3016                                          *
+* Version : 1.1 - 26/08/2016                                          *
 * Improvements to parameter validation and wait interval reporting.   *
 *---------------------------------------------------------------------*
-* Version : 1.2 - 31/08/3016                                          *
+* Version : 1.2 - 31/08/2016                                          *
 * Code tidied up and documented.                                      *
+*---------------------------------------------------------------------*
+* Version : 1.3 - 28/09/2016                                          *
+* Trac flag reset implelented.                                        *
 ***********************************************************************
 R0       EQU   0                                                        
 R1       EQU   1                                                        
@@ -117,6 +120,8 @@ R12      EQU   12
 R13      EQU   13                                                       
 R14      EQU   14                                                       
 R15      EQU   15                                                       
+         LCLB  &DEBUG                  DWDEBUG TS Queue control
+&DEBUG   SETB  1                       Don't generate debug code
          EJECT                                                          
 *        DFHCSAD TYPE=DSECT                                             
          EJECT                                                          
@@ -154,7 +159,17 @@ WRK_MASNAME    DS    CL8               Local MAS name
 *
 WRK_PLEXNAME   DS    CL8               Local CICSplex name
 WRK_VER        DS    CL4               Local CPSM version
+*
 WRK_SAVEFLAGS  DS    CL4               Saved WLM trace flags
+WRK_SAVEDEC    DS    PL8               Saved flags in decimal
+WRK_SAVECHAR   DS    0CL15             Saved flags in char
+               DS    CL5
+WRK_SAVED      DS    CL10              SET MODIFY Value
+*
+WRK_MD2        DS    0CL20
+               DS    CL9
+WRK_MD2I       DS    CL10              Saved flags insertion
+               DS    CL1
 *
 WRK_SYS        DS    0CL11             SYSID CRITERIA string
                DS    CL6
@@ -171,6 +186,8 @@ WRK_MSG2I      DS    CL2               MSG2 wait interval
                DS    CL35
 *
 WRK_DOTS       DS    CL59              Interval popper buffer
+*
+WRK_ADJFLAG    DS    CL1               Sign conversion flag
 *
 TIOALEN        DS    H                 TIOA length
 MYTIOA         DS    CL80              Input TIOA buffer
@@ -270,6 +287,7 @@ GOTTIME  DS    0H
          CVB   R15,WRK_TIME            Convert interval to binary ...
          ST    R15,WRK_INTRVAL         ... and store it for wait loop
 *
+         AIF   (&DEBUG).DBUG010
 * Clear down and prime the TS Queue that we'll be reporting to. This 
 * queue is for debugging purposes - has no functional value.
 *
@@ -281,6 +299,7 @@ GOTTIME  DS    0H
                              LENGTH(128)                               X
                              NOHANDLE                                   
 *                                                                       
+.DBUG010 ANOP
 * Perform an unqualifed CPSM CONNECT to plug ourselves into a CMAS
 * at the lowest supported CPSM version (0420).
          EXEC CPSM CONNECT VERSION('0420')                             X
@@ -309,10 +328,12 @@ GOTTIME  DS    0H
          BNE   BOOM                    No :-(                 
 *
 * Save the GET response
+         AIF   (&DEBUG).DBUG020
          EXEC CICS WRITEQ TS QUEUE('DWDEBUG')                          X
                              FROM(WRK_THREAD)                          X
                              LENGTH(128)                               X
                              NOHANDLE                                   
+.DBUG020 ANOP
 *                                                                       
          LA    R15,GETAREAL            Set I/O buffer length
          ST    R15,WRK_LEN             Save for FETCH
@@ -342,11 +363,13 @@ FTCHCMTP DS    0H
          CLC   WRK_RESP,EYUVALUE(OK)   Good FETCH? 
          BNE   BOOM                    No :-(                 
 *                                                                       
+         AIF   (&DEBUG).DBUG030
 * Stash the gotten CMTPMLNK record in our TS queue.
          EXEC CICS WRITEQ TS QUEUE('DWDEBUG')                          X
                              FROM(GETAREA)                             X
                              LENGTH(WRK_LEN+2)                         X
                              NOHANDLE                                   
+.DBUG030 ANOP
 *                                                                       
          MVC   WRK_MAS,CNST_MAS        Format CICSNAME Criteria string
          USING CMTPMLNK,CMTAREA
@@ -438,12 +461,14 @@ FTCHCMTP DS    0H
          USING MAS,MASAREA             Cover the MAS buffer
          MVC   WRK_VER,MAS_CPSMVER     Save the CPSM version of the MAS
 *                                                               
+         AIF   (&DEBUG).DBUG040
 * Stash the gotten OBJSTAT/MAS record in our TS queue.
          EXEC CICS WRITEQ TS QUEUE('DWDEBUG')                          X
                              FROM(GETAREA)                             X
                              LENGTH(WRK_LEN+2)                         X
                              NOHANDLE                                   
 *                                                                       
+.DBUG040 ANOP
 * So DISCONNECT and ReCONNECT to the PLEX at our MAS's CPSM version.
 *
          EXEC CPSM DISCARD RESULT(WRK_RSLTT)                           X
@@ -523,12 +548,14 @@ FTCHCMTP DS    0H
          CLC   WRK_RESP,EYUVALUE(OK)   Good FETCH? 
          BNE   BOOM                    No :-(                 
 *
+         AIF   (&DEBUG).DBUG050
 * Stash the gotten MAS record in our TS queue.
 *                                            
          EXEC CICS WRITEQ TS QUEUE('DWDEBUG')                          X
                              FROM(MASAREA)                             X
                              LENGTH(WRK_LEN+2)                         X
                              NOHANDLE                                   
+.DBUG050 ANOP
 *
          LA    R15,L'CNST_MSG1         Set length of MSG1 buffer ...
          STH   R15,WRK_TXTLEN          ... and store for SEND
@@ -548,7 +575,20 @@ FTCHCMTP DS    0H
 * So! We have a MAS record in our buffer. Now fiddle with its 
 * trace flags!
          MVC   WRK_SAVEFLAGS,MAS_WLMTRACE Save the current WLM flags
-         MVC   MAS_WLMTRACE(4),=AL4(30) Switch on 2* trace flags
+         MVI   WRK_ADJFLAG,C'N'           Prime adjustment flag
+         TM    WRK_SAVEFLAGS,X'80'        Is top bit on?
+         BZ    CONVDEC                    No, carry on
+         MVI   WRK_ADJFLAG,C'Y'           Yes, set adjustment flag
+         NI    WRK_SAVEFLAGS,X'7F'        Switch off sign bit
+CONVDEC  DS    0H
+         ICM   R15,B'1111',WRK_SAVEFLAGS  Convert WLM flags value ...
+         CVD   R15,WRK_SAVEDEC            ...to decimal
+         CLI   WRK_ADJFLAG,C'Y'           Adjusted?
+         BNE   GETCHAR                    no, carry on
+         AP    WRK_SAVEDEC,CNST_8000      Add back sign adjustment
+GETCHAR  DS    0H
+         UNPK  WRK_SAVECHAR,WRK_SAVEDEC   Convert to zoned character
+         OI    WRK_SAVECHAR+L'WRK_SAVECHAR-1,X'F0' Sort out last byte
 *
 * and write it back!
          EXEC CPSM SET MODIFY(CNST_MOD)                                X
@@ -647,19 +687,24 @@ DOTLOOP  DS    0H
          CLC   WRK_RESP,EYUVALUE(OK)   Good FETCH? 
          BNE   BOOM                    No :-(                 
 *
+         AIF   (&DEBUG).DBUG060
 * Stash the gotten MAS record in our TS queue.
 *                                                                       
          EXEC CICS WRITEQ TS QUEUE('DWDEBUG')                          X
                              FROM(MASAREA)                             X
                              LENGTH(WRK_LEN+2)                         X
                              NOHANDLE                                   
+.DBUG060 ANOP
 *
 * Now reset the WLM trace flags back to their orginal setting.
          MVC   MAS_WLMTRACE,WRK_SAVEFLAGS Restore the flags
+         MVC   WRK_SAVED,WRK_SAVECHAR+(L'WRK_SAVECHAR-L'WRK_SAVED)
+         MVC   WRK_MD2,CNST_MD2        Set Modify string
+         MVC   WRK_MD2I,WRK_SAVED      Set flag value
 *                                                                       
 * and write it back!
-         EXEC CPSM SET MODIFY(CNST_MD2)                                X
-                       LENGTH(L'CNST_MD2)                              X
+         EXEC CPSM SET MODIFY(WRK_MD2)                                 X
+                       LENGTH(L'WRK_MD2)                               X
                        ALL                                             X
                        THREAD(WRK_THREAD)                              X
                        RESULT(WRK_RSLTT)                               X
@@ -703,9 +748,11 @@ DISCONN  DS    0H
                    RESPONSE(WRK_RESP)                                  X
                    REASON(WRK_REAS)                                     
 *                                                                       
+         AIF   (&DEBUG).DBUG070
 * We've ended successfully - we don't need the TS queue contents.
          EXEC CICS DELETEQ TS QUEUE('DWDEBUG')                         X
                              NOHANDLE                                   
+.DBUG070 ANOP
 *                                                                       
 *********************************************************************** 
 *        RETURN                                                         
@@ -737,16 +784,20 @@ BOOM      DC   F'0'
 *                                                                      
 PROGNAME  DC   CL8'SETTRACE'                                           
 *
+CNST_8000 DC   PL8'2147483648'         Negative sign adjustment value 
+*
 CNST_MAS  DC   CL18'CICSNAME=xxxxxxxx.'
 CNST_SYS  DC   CL11'SYSID=xxxx.'
 *
 * CNST_MOD will switch on WLM 18, 19, and 23 through 27. 
 CNST_MOD  DC   CL15'WLMTRACE=25568.'
-* CNST_MD2 switches all WLM trace flags off. 
-CNST_MD2  DC   CL14'WLMTRACE=0000.'
+* CNST_MD2 resets the flags to their previous setting. 
+CNST_MD2  DC   CL20'WLMTRACE=xxxxxxxxxx.'
+* CNST_MD3 will switch on WLM level 26 only. 
+CNST_MD3  DC   CL12'WLMTRACE=64.'
 *
 CNST_HDR  DC   C'Set CICSPlex SM Workload Manager trace '
-          DC   C'- Version 1.2'
+          DC   C'- Version 1.3'
 HDR_LEN   EQU  *-CNST_HDR
 * 
 CNST_MSG1 DC   CL46'Switching on WLM trace flags for MAS: xxxxxxxx'
