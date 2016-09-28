@@ -102,7 +102,7 @@
 * Code tidied up and documented.                                      *
 *---------------------------------------------------------------------*
 * Version : 1.3 - 28/09/2016                                          *
-* Trac flag reset implelented.                                        *
+* Trace flag reset implemented.                                       *
 ***********************************************************************
 R0       EQU   0                                                        
 R1       EQU   1                                                        
