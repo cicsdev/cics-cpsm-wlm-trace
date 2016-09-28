@@ -22,7 +22,7 @@ The transaction should not be purgeable, because otherwise the trace flags could
 
 
 ## Running the program
-To run the program, start a 3270 session where WLM traces are required to be issued (normally a TOR/Routing region) and enter the "SETT" (or whatever code you chose) transaction code. This will cause WLM trace flags 18, 19 and 23 through 27 to be switched on for 5 seconds, and then all WLM trace flags will be switched off again. In a busy workload, five seconds is normally enough to generate hundreds or trace entries.
+To run the program, start a 3270 session where WLM traces are required to be issued (normally a TOR/Routing region) and enter the "SETT" (or whatever code you chose) transaction code. This will cause WLM trace flags 18, 19 and 23 through 27 to be switched on for 5 seconds, and then all WLM trace flags will be reverted to their original setting. In a busy workload, five seconds is normally enough to generate hundreds of trace entries.
 
 If you desire to override the five second interval with a different period - which should only be done under advice from the CPSM Service Engineers - then you may issue: "SETT nn"  -  where "nn" is the time period in seconds, from 1 to 59 seconds. Any other value will be rejected.
 
