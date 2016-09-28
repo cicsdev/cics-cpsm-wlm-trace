@@ -103,6 +103,9 @@
 *---------------------------------------------------------------------*
 * Version : 1.3 - 28/09/2016                                          *
 * Trace flag reset implemented.                                       *
+*---------------------------------------------------------------------*
+* Version : 1.4 - 28/09/2016                                          *
+* Start and Stop CICS Auxiliary trace.                                *
 ***********************************************************************
 R0       EQU   0                                                        
 R1       EQU   1                                                        
@@ -604,7 +607,10 @@ GETCHAR  DS    0H
          CLC   WRK_RESP,EYUVALUE(OK)   Good SET? 
          BNE   BOOM                    No :-(                 
 *
-* OK the WLM trace is now running! Wait for a little while. 
+* OK the WLM trace is now running! Switch on CICS Auxtrace and then
+* Wait for a little while. 
+         EXEC CICS SET TRACEDEST AUXSTART NOHANDLE
+*
          MVC   WRK_MSG2,CNST_MSG2      Initialise MSG2 buffer
          MVC   WRK_MSG2I,WAITTIME      Insert wait time string
          LA    R15,L'WRK_MSG2          Set message buffer length
@@ -727,6 +733,9 @@ DOTLOOP  DS    0H
                              JUSTIFY(WRK_JUST)                         X
                              TERMINAL WAIT NOHANDLE
 *
+* Switch off CICS Auxiliary trace.
+         EXEC CICS SET TRACEDEST AUXSTOP NOHANDLE
+*
          LA    R15,L'CNST_MSG4         Set length of MSG4 buffer ...
          STH   R15,WRK_TXTLEN          ... and store for SEND
          LH    R15,WRK_JUST            Load the screen line number
@@ -797,13 +806,13 @@ CNST_MD2  DC   CL20'WLMTRACE=xxxxxxxxxx.'
 CNST_MD3  DC   CL12'WLMTRACE=64.'
 *
 CNST_HDR  DC   C'Set CICSPlex SM Workload Manager trace '
-          DC   C'- Version 1.3'
+          DC   C'- Version 1.4'
 HDR_LEN   EQU  *-CNST_HDR
 * 
 CNST_MSG1 DC   CL46'Switching on WLM trace flags for MAS: xxxxxxxx'
 CNST_MSG2 DC   CL45'Waiting xx seconds before deactivating trace:'
 CNST_MSG3 DC   CL39'WLM trace flags have been switched off,'
-CNST_MSG4 DC   CL50'use the CETR transaction to switch off CICS trace.'
+CNST_MSG4 DC   CL50'and CICS Auxiliary trace is now stopped.'
 *
 CNST_INV  DC   C'The parameter value must specify a wait interval to '
           DC   C'leave the trace running. The value must be numeric '
