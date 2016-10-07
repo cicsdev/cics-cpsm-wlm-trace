@@ -7,6 +7,40 @@ To ease the complexity of switching the correct flags on, and to reduce the risk
 The SETTRACE program is shipped in source form, and must be extracted from this GitHub repository, extracted from the .zip file, and uploaded to the z/OS environment, where it must be assembled with the CPSM source code libraries included in the Assembly step SYSLIB DD sequence. Ensure that the resultant object file is link-edited into a load library that is referable by the MASes in which you want to run the program.
 
 
+## Program compilation
+The source file will need to be compiled with a Assembler JCL deck. The CICS supplied DFHEITAL sample should be sufficient:
+
+    //STEP1   EXEC DFHEITAL,                                              
+    //             INDEX='ctsnnn',                            
+    //             REG=4M,                                                
+    //             PROGLIB='user.loadlib',                              
+    //             DSCTLIB='user.maclib',                  
+    //             PARM.TRN='CPSM,SP'                                     
+    //*        PARM.ASM='NODECK,OBJECT,ALIGN,TERM,XREF(SHORT)'            
+    //TRN.STEPLIB DD                                                      
+    //          DD DISP=SHR,DSN=CTSnnn.CPSMnnn.EYULOAD               
+    //TRN.SYSIN DD DISP=SHR,DSN=download.source.library(SETTRACE)
+    //ASM.SYSTERM DD SYSOUT=*                                             
+    //ASM.SYSLIN  DD SYSOUT=*                                              
+    //LKED.SYSLIB DD                                                      
+    //          DD DISP=SHR,DSN=CTSnnn.CPSMnnn.EYULOAD      
+    //LKED.SYSIN DD *                                                     
+      ORDER DFHEAI,SETTRACE,DFHEAI0                                       
+      INCLUDE SYSLIB(DFHEAI)                                              
+      INCLUDE SYSLIB(DFHEAI0)                                             
+      INCLUDE SYSLIB(EYU9AMSI)                                            
+      NAME SETTRACE(R)                                                    
+    /*                                                                    
+
+You will have to substitute your own library names where applicable:
++ "ctsnnn" is the high level qualifier of your installed CICS TS libraries
++ "user.loadlib" is your private load library
++ "user.maclib" is your private macro library
++ "download.source.library" is the library into which the SETTRACE program file was catalogued
++ "CTSnnn.CPSMnnn.EYULOAD" is the name of your installed CICSPlex SM load library
+
+
+
 ## Program definition
 To run the program in a MAS, you need to define the SETTRACE program, and a CICS transaction code to execute it, for example: "SETT". You may use the CICS CEDA transaction, or CPSM BAS for this purpose. "Other proprietary CICS Resource Definition tools are available" - and may also be used. The salient points of each definition are:
 
