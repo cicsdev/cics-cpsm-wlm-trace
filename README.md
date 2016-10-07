@@ -33,11 +33,11 @@ The source file will need to be compiled with a Assembler JCL deck. The CICS sup
     /*                                                                    
 
 You will have to substitute your own library names where applicable:
-+ "ctsnnn" is the high level qualifier of your installed CICS TS libraries
-+ "user.loadlib" is your private load library
-+ "user.maclib" is your private macro library
-+ "download.source.library" is the library into which the SETTRACE program file was catalogued
-+ "CTSnnn.CPSMnnn.EYULOAD" is the name of your installed CICSPlex SM load library
++ 'ctsnnn' is the high level qualifier of your installed CICS TS libraries
++ 'user.loadlib' is your private load library
++ 'user.maclib' is your private macro library
++ 'download.source.library' is the library into which the SETTRACE program file was catalogued
++ 'CTSnnn.CPSMnnn.EYULOAD' is the name of your installed CICSPlex SM load library
 
 
 
